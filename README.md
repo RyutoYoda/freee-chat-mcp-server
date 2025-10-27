@@ -215,8 +215,3 @@ MIT License
 - [freee API仕様書](https://developer.freee.co.jp/docs)
 - [Claude Desktop](https://claude.ai/download)
 - [MCP (Model Context Protocol)](https://modelcontextprotocol.io/introduction)
-
----
-
-**開発者:** [あなたの名前]  
-**バージョン:** 1.0.0
