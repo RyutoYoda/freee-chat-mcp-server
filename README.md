@@ -173,7 +173,7 @@ suggest_company を実行
 
 ## コントリビューション
 
-バグ報告や機能要望は[Issues](https://github.com/YOUR_USERNAME/freee-mcp-server/issues)でお知らせください。
+バグ報告や機能要望は[Issues](https://github.com/RyutoYoda/freee-chat-mcp-server/issues)でお知らせください。
 
 プルリクエストも歓迎します！
 
