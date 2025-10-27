@@ -1,6 +1,9 @@
-# freee MCP Server
+# freee-chat-mcp-server
+
 
 freee会計APIをClaude Desktopで簡単に使えるMCPサーバーです。経費登録、取引管理、帳票確認などがClaude上で直接操作できます。
+
+<img width="895" height="474" alt="スクリーンショット 2025-10-27 15 52 50" src="https://github.com/user-attachments/assets/73b873a1-641d-4826-a6b5-34a67923a455" />
 
 ## 主な機能
 
