@@ -23,7 +23,10 @@ const server = new Server(
 );
 
 // アクセストークンは環境変数またはClaude Desktopの設定から取得
-const accessToken = process.env.FREEE_ACCESS_TOKEN || "0z-MBhye5qHnFGzzVc7uvX4W14dhixxxv15uxbIy32o";
+const accessToken = process.env.FREEE_ACCESS_TOKEN;
+if (!accessToken) {
+  throw new Error("FREEE_ACCESS_TOKEN environment variable is required");
+}
 const freeeClient = new FreeeClient(accessToken);
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
