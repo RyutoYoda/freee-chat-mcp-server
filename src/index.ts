@@ -78,10 +78,24 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           expense_type: {
             type: "string",
             enum: ["food", "office_supplies", "transportation", "utilities", "rent", "entertainment", "other"],
-            description: "Type of expense for smart categorization",
+            description: "Type of expense for smart categorization. If not provided, will be auto-detected from description.",
           },
         },
         required: ["company_id", "amount", "description"],
+      },
+    },
+    {
+      name: "analyze_expense_type",
+      description: "Analyze expense description to suggest the most appropriate expense type and account item",
+      inputSchema: {
+        type: "object",
+        properties: {
+          description: {
+            type: "string",
+            description: "Expense description (from receipt or user input)",
+          },
+        },
+        required: ["description"],
       },
     },
     {
@@ -354,12 +368,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case "analyze_expense_type": {
+        const analyzedType = freeeClient.analyzeExpenseFromDescription(args.description as string);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `**経費分析結果**\n\n**摘要:** ${args.description}\n**推奨経費種類:** ${analyzedType}\n\nこの分析結果を使って create_smart_expense で登録できます。`,
+            },
+          ],
+        };
+      }
+
       case "create_smart_expense": {
         const accountItems = await freeeClient.listAccountItems(args.company_id as number);
         const taxes = await freeeClient.listTaxes(args.company_id as number);
         
+        // expense_typeが指定されていない場合は自動判断
+        const expenseType = args.expense_type as string || freeeClient.analyzeExpenseFromDescription(args.description as string);
+        
         const smartMapping = freeeClient.getSmartExpenseMapping(
-          args.expense_type as string || "other",
+          expenseType,
           accountItems,
           taxes
         );
@@ -380,7 +409,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: "text",
-              text: `✅ 経費登録完了！\n\n📊 **詳細:**\n- 金額: ¥${args.amount?.toLocaleString()}\n- 勘定科目: ${smartMapping.accountItemName}\n- 税区分: ${smartMapping.taxName}\n- 摘要: ${args.description}\n- 取引日: ${args.transaction_date || new Date().toISOString().split("T")[0]}\n\n🆔 **取引ID:** ${result.deal?.id}\n\n${JSON.stringify(result, null, 2)}`,
+              text: `経費登録完了！\n\n**詳細:**\n- 金額: ¥${args.amount?.toLocaleString()}\n- 勘定科目: ${smartMapping.accountItemName}\n- 税区分: ${smartMapping.taxName}\n- 経費種類: ${expenseType} ${args.expense_type ? '(指定)' : '(自動判定)'}\n- 摘要: ${args.description}\n- 取引日: ${args.transaction_date || new Date().toISOString().split("T")[0]}\n\n**取引ID:** ${result.deal?.id}\n\n${JSON.stringify(result, null, 2)}`,
             },
           ],
         };
@@ -520,7 +549,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: "text",
-              text: `✅ **取引が削除されました**\n\n🗑️ **削除された取引ID:** ${args.deal_id}\n\n${JSON.stringify(result, null, 2)}`,
+              text: `**取引が削除されました**\n\n**削除された取引ID:** ${args.deal_id}\n\n${JSON.stringify(result, null, 2)}`,
             },
           ],
         };

@@ -115,20 +115,20 @@ export class FreeeClient {
   // スマート機能
   suggestCompany(companies: any): string {
     if (!companies?.companies || companies.companies.length === 0) {
-      return "❌ アクセス可能な会社が見つかりませんでした。";
+      return "アクセス可能な会社が見つかりませんでした。";
     }
 
     if (companies.companies.length === 1) {
       const company = companies.companies[0];
-      return `✅ **会社が自動選択されました**\n\n🏢 **${company.display_name}** (ID: ${company.id})\n- 権限: ${company.role}\n\nこの会社で経費登録を行います。`;
+      return `**会社が自動選択されました**\n\n**${company.display_name}** (ID: ${company.id})\n- 権限: ${company.role}\n\nこの会社で経費登録を行います。`;
     }
 
-    let suggestion = "🏢 **複数の会社が見つかりました。どちらを使用しますか？**\n\n";
+    let suggestion = "**複数の会社が見つかりました。どちらを使用しますか？**\n\n";
     companies.companies.forEach((company: any, index: number) => {
       suggestion += `${index + 1}. **${company.display_name}** (ID: ${company.id})\n   - 権限: ${company.role}\n   - 会社番号: ${company.company_number}\n\n`;
     });
     
-    suggestion += "💡 **使用する会社のIDを指定して経費登録してください。**";
+    suggestion += "**使用する会社のIDを指定して経費登録してください。**";
     return suggestion;
   }
 
@@ -144,7 +144,7 @@ export class FreeeClient {
       { name: "福利厚生費", keywords: ["福利厚生費"], taxCodes: [136] },
     ];
 
-    let suggestion = "💼 **よく使う経費科目**\n\n";
+    let suggestion = "**よく使う経費科目**\n\n";
     
     commonExpenseCategories.forEach((category, index) => {
       const matchedItem = accountItems.account_items?.find((item: any) => 
@@ -164,27 +164,36 @@ export class FreeeClient {
       }
     });
 
-    suggestion += "💡 **create_smart_expense** を使うと、expense_type に基づいて自動で適切な勘定科目と税区分が選択されます。";
+    suggestion += "**create_smart_expense** を使うと、expense_type に基づいて自動で適切な勘定科目と税区分が選択されます。";
     return suggestion;
   }
 
   getSmartExpenseMapping(expenseType: string, accountItems: any, taxes: any) {
     const mappings: Record<string, { keywords: string[], defaultTaxCode: number }> = {
-      food: { keywords: ["消耗品費", "事務用品費"], defaultTaxCode: 163 }, // 軽減税率8%
+      food: { keywords: ["福利厚生費", "交際費", "会議費"], defaultTaxCode: 163 }, // 軽減税率8%
       office_supplies: { keywords: ["消耗品費", "事務用品費"], defaultTaxCode: 136 }, // 10%
       transportation: { keywords: ["旅費交通費"], defaultTaxCode: 136 },
-      utilities: { keywords: ["水道光熱費"], defaultTaxCode: 136 },
-      rent: { keywords: ["地代家賃"], defaultTaxCode: 136 },
+      utilities: { keywords: ["水道光熱費", "燃料費"], defaultTaxCode: 136 },
+      rent: { keywords: ["地代家賃", "賃借料"], defaultTaxCode: 136 },
       entertainment: { keywords: ["交際費", "会議費"], defaultTaxCode: 136 },
-      other: { keywords: ["雑費", "消耗品費"], defaultTaxCode: 136 },
+      other: { keywords: ["雑費", "その他経費"], defaultTaxCode: 136 },
     };
 
     const mapping = mappings[expenseType] || mappings.other;
     
-    // 勘定科目を検索
-    const accountItem = accountItems.account_items?.find((item: any) => 
-      mapping.keywords.some(keyword => item.name.includes(keyword)) && item.available
-    ) || accountItems.account_items?.find((item: any) => item.available);
+    // 勘定科目を検索（優先順位付き）
+    let accountItem = null;
+    for (const keyword of mapping.keywords) {
+      accountItem = accountItems.account_items?.find((item: any) => 
+        item.name.includes(keyword) && item.available
+      );
+      if (accountItem) break;
+    }
+    
+    // 見つからない場合は利用可能な勘定科目を使用
+    if (!accountItem) {
+      accountItem = accountItems.account_items?.find((item: any) => item.available);
+    }
 
     // 税区分を検索
     const tax = taxes.taxes?.find((tax: any) => 
@@ -197,6 +206,58 @@ export class FreeeClient {
       taxCode: tax?.code || 2,
       taxName: tax?.name_ja || "対象外",
     };
+  }
+
+  // 画像の内容から経費種類を推測する機能
+  analyzeExpenseFromDescription(description: string): string {
+    const desc = description.toLowerCase();
+    
+    // 食品・飲食関連
+    if (desc.includes('レストラン') || desc.includes('居酒屋') || desc.includes('カフェ') ||
+        desc.includes('スーパー') || desc.includes('コンビニ') || desc.includes('食材') ||
+        desc.includes('弁当') || desc.includes('ランチ') || desc.includes('ディナー') ||
+        desc.includes('ドリンク') || desc.includes('コーヒー') || desc.includes('お茶') ||
+        desc.includes('野菜') || desc.includes('肉') || desc.includes('魚') ||
+        desc.includes('パン') || desc.includes('米') || desc.includes('麺')) {
+      return 'food';
+    }
+    
+    // 交通費関連
+    if (desc.includes('電車') || desc.includes('タクシー') || desc.includes('バス') ||
+        desc.includes('新幹線') || desc.includes('飛行機') || desc.includes('ガソリン') ||
+        desc.includes('駐車場') || desc.includes('高速') || desc.includes('交通費') ||
+        desc.includes('jr') || desc.includes('私鉄') || desc.includes('地下鉄')) {
+      return 'transportation';
+    }
+    
+    // 事務用品関連
+    if (desc.includes('文具') || desc.includes('ペン') || desc.includes('紙') ||
+        desc.includes('ノート') || desc.includes('ファイル') || desc.includes('事務用品') ||
+        desc.includes('プリンター') || desc.includes('インク') || desc.includes('封筒') ||
+        desc.includes('はさみ') || desc.includes('ホチキス')) {
+      return 'office_supplies';
+    }
+    
+    // 接待・会議関連
+    if (desc.includes('会議') || desc.includes('打ち合わせ') || desc.includes('接待') ||
+        desc.includes('懇親会') || desc.includes('歓送迎会') || desc.includes('忘年会') ||
+        desc.includes('新年会') || desc.includes('パーティー') || desc.includes('会食')) {
+      return 'entertainment';
+    }
+    
+    // 光熱費関連
+    if (desc.includes('電気') || desc.includes('ガス') || desc.includes('水道') ||
+        desc.includes('光熱費') || desc.includes('電力') || desc.includes('燃料')) {
+      return 'utilities';
+    }
+    
+    // 家賃・賃料関連
+    if (desc.includes('家賃') || desc.includes('賃料') || desc.includes('オフィス') ||
+        desc.includes('事務所') || desc.includes('レンタル') || desc.includes('リース')) {
+      return 'rent';
+    }
+    
+    return 'other';
   }
 
   // 削除・管理機能
@@ -224,10 +285,10 @@ export class FreeeClient {
 
   formatRecentDeals(dealsData: any): string {
     if (!dealsData?.deals || dealsData.deals.length === 0) {
-      return "📭 **最近の取引が見つかりませんでした**";
+      return "**最近の取引が見つかりませんでした**";
     }
 
-    let formatted = "📋 **最近の取引一覧**\n\n";
+    let formatted = "**最近の取引一覧**\n\n";
     
     dealsData.deals.forEach((deal: any, index: number) => {
       formatted += `${index + 1}. **ID: ${deal.id}** | ¥${deal.amount?.toLocaleString()}\n`;
@@ -243,7 +304,7 @@ export class FreeeClient {
       formatted += "\n";
     });
 
-    formatted += "💡 **削除したい場合:** `delete_deal` を使用して取引IDを指定してください。";
+    formatted += "**削除したい場合:** `delete_deal` を使用して取引IDを指定してください。";
     return formatted;
   }
 }
